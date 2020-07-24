@@ -1,6 +1,6 @@
-const path = require('path');
+const path = require('path')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
-const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const { CleanWebpackPlugin } = require('clean-webpack-plugin')
 
 module.exports = [
     {
@@ -12,6 +12,7 @@ module.exports = [
             new CleanWebpackPlugin(),
             new HtmlWebpackPlugin({
                 title: 'Pixi.js Live2D Demo',
+                template: './demo/index.html',
             }),
         ],
         output: {
@@ -19,10 +20,11 @@ module.exports = [
             path: path.resolve(__dirname, 'dist_demo'),
         },
         devServer: {
-            contentBase: ['./dist_demo', './assets'],
+            contentBase: ['./dist_demo', './assets', './cubism-sdk'],
         },
-    }
-].map(config => ({
+        externals: ['fs'],
+    },
+].map((config) => ({
     ...config,
     module: {
         rules: [
