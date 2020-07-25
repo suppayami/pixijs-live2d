@@ -3,43 +3,26 @@ import 'whatwg-fetch'
 
 import { Live2DCubismFramework as cubismusermodel } from '../cubism-sdk/Framework/dist/model/cubismusermodel'
 import { Live2DCubismFramework as icubismmodelsetting } from '../cubism-sdk/Framework/dist/icubismmodelsetting'
-import { Live2DCubismFramework as cubismmodelsettingjson } from '../cubism-sdk/Framework/dist/cubismmodelsettingjson'
-import { TextureManager } from './texture_manager'
-
-enum LoadingState {
-    Init,
-    LoadingTextures,
-    LoadedTextures,
-}
+import { loadCubismModel } from './cubism_loader'
 
 export class Live2DModel extends Pixi.Container {
     protected cubismModel = new cubismusermodel.CubismUserModel()
-    protected cubismSetting: icubismmodelsetting.ICubismModelSetting
     protected assetHomeDir = ''
-    protected motion = null
-    protected loadingState: LoadingState = LoadingState.Init
+    protected contextId = -1
 
     constructor(
-        setting: icubismmodelsetting.ICubismModelSetting,
-        private readonly textureManager: TextureManager,
+        protected readonly cubismSetting: icubismmodelsetting.ICubismModelSetting,
+        protected readonly textures: Pixi.Texture[],
     ) {
         super()
-        this.cubismSetting = setting
     }
 
-    static async fromModel(
-        path: string,
-        textureManager: TextureManager,
-    ): Promise<Live2DModel> {
-        const res = await fetch(path)
-        const buffer = await res.arrayBuffer()
+    static async fromModel(path: string): Promise<Live2DModel> {
+        const dir = path.split('/').slice(0, -1).join('/')
+        const filename = path.split('/').pop() ?? ''
+        const { setting, textures } = await loadCubismModel(dir, filename)
 
-        const setting = new cubismmodelsettingjson.CubismModelSettingJson(
-            buffer,
-            buffer.byteLength,
-        )
-
-        const model = new Live2DModel(setting, textureManager)
+        const model = new Live2DModel(setting, textures)
         model.assetHomeDir = path.split('/').slice(0, -1).join('/')
         await model.setupCubismModel()
 
@@ -68,10 +51,10 @@ export class Live2DModel extends Pixi.Container {
         const cubismModel = this.cubismModel
         const cubismRenderer = cubismModel.getRenderer()
 
-        if (this.loadingState === LoadingState.Init) {
-            this.setupTextures()
-            this.loadingState = LoadingState.LoadingTextures
-            return
+        if (this.contextId !== (renderer as any).CONTEXT_UID) {
+            this.contextId = (renderer as any).CONTEXT_UID
+            this.setupTextures(renderer)
+            cubismRenderer.startUp(renderer.gl)
         }
 
         renderer.batch.reset()
@@ -79,60 +62,42 @@ export class Live2DModel extends Pixi.Container {
         renderer.shader.reset()
         renderer.state.reset()
 
-        if (this.loadingState === LoadingState.LoadedTextures) {
-            if (!cubismRenderer.gl) {
-                cubismRenderer.startUp(renderer.gl)
-            }
-            const viewport: number[] = [0, 0, renderer.width, renderer.height]
-            cubismRenderer.setIsPremultipliedAlpha(true)
-            cubismRenderer.setRenderState(
-                renderer.gl.getParameter(renderer.gl.FRAMEBUFFER_BINDING),
-                viewport,
+        const viewport: number[] = [0, 0, renderer.width, renderer.height]
+        cubismRenderer.setIsPremultipliedAlpha(true)
+        cubismRenderer.setRenderState(
+            renderer.gl.getParameter(renderer.gl.FRAMEBUFFER_BINDING),
+            viewport,
+        )
+        cubismModel
+            .getModelMatrix()
+            .scale(
+                this.scale.x,
+                (renderer.width / renderer.height) * this.scale.y,
             )
-            cubismModel
-                .getModelMatrix()
-                .scale(0.5, (renderer.width / renderer.height) * 0.5)
-            cubismRenderer.setMvpMatrix(cubismModel.getModelMatrix())
-            cubismRenderer.drawModel()
+        cubismModel.getModelMatrix().setX(-1 + (this.x / renderer.width) * 2)
+        cubismModel.getModelMatrix().setY(1 - (this.y / renderer.height) * 2)
+        cubismRenderer.setMvpMatrix(cubismModel.getModelMatrix())
+        cubismRenderer.drawModel()
 
-            const texture = Pixi.Texture.WHITE.baseTexture
-            renderer.texture.bind(texture, 0)
-        }
+        const texture = Pixi.Texture.WHITE.baseTexture
+        renderer.texture.bind(texture, 0)
 
         renderer.gl.activeTexture(
             WebGLRenderingContext.TEXTURE0 + renderer.texture.currentLocation,
         )
     }
 
-    private async setupTextures() {
-        // テクスチャ読み込み用
-        const textureCount: number = this.cubismSetting.getTextureCount()
-
-        for (
-            let modelTextureNumber = 0;
-            modelTextureNumber < textureCount;
-            modelTextureNumber++
-        ) {
-            // テクスチャ名が空文字だった場合はロード・バインド処理をスキップ
-            if (
-                this.cubismSetting.getTextureFileName(modelTextureNumber) == ''
-            ) {
-                console.log('getTextureFileName null')
-                continue
-            }
-
-            // WebGLのテクスチャユニットにテクスチャをロードする
-            const texturePath =
-                this.assetHomeDir +
-                '/' +
-                this.cubismSetting.getTextureFileName(modelTextureNumber)
-
-            const texture = await this.textureManager.loadTexture(texturePath)
+    private async setupTextures(renderer: Pixi.Renderer) {
+        for (let i = 0; i < this.textures.length; i++) {
+            renderer.texture.bind(this.textures[i].baseTexture, 0)
             this.cubismModel
                 .getRenderer()
-                .bindTexture(modelTextureNumber, texture)
+                .bindTexture(
+                    i,
+                    (this.textures[i].baseTexture as any)._glTextures[
+                        this.contextId
+                    ].texture,
+                )
         }
-
-        this.loadingState = LoadingState.LoadedTextures
     }
 }
