@@ -1,4 +1,5 @@
 import * as Pixi from 'pixi.js'
+import 'whatwg-fetch'
 
 import { Live2DCubismFramework as icubismmodelsetting } from '../cubism-sdk/Framework/dist/icubismmodelsetting'
 import { Live2DCubismFramework as cubismmodelsettingjson } from '../cubism-sdk/Framework/dist/cubismmodelsettingjson'
@@ -6,11 +7,22 @@ import { Live2DCubismFramework as cubismmodelsettingjson } from '../cubism-sdk/F
 interface CubismResources {
     setting: icubismmodelsetting.ICubismModelSetting
     textures: Pixi.Texture[]
+    modelBuffer?: ArrayBuffer
 }
 
 const jsonToArrayBuffer = async (json: any) =>
     new Promise<ArrayBuffer>((resolve) => {
         const blob = new Blob([JSON.stringify(json)])
+        const reader = new FileReader()
+        reader.readAsArrayBuffer(blob)
+        reader.onload = function () {
+            resolve(reader.result as any)
+        }
+    })
+
+const stringToArrayBuffer = async (string: string) =>
+    new Promise<ArrayBuffer>((resolve) => {
+        const blob = new Blob([string])
         const reader = new FileReader()
         reader.readAsArrayBuffer(blob)
         reader.onload = function () {
@@ -51,6 +63,21 @@ const loadCubismTextures = async (
         })
     })
 
+const loadCubismModelBuffer = async (
+    dir: string,
+    setting: icubismmodelsetting.ICubismModelSetting,
+) => {
+    const modelFileName = setting.getModelFileName()
+    const path = `${dir}/${modelFileName}`
+
+    if (modelFileName === '') {
+        return
+    }
+
+    const res = await fetch(path)
+    return res.arrayBuffer()
+}
+
 export const loadCubismModel = async (
     dir: string,
     modelFileName: string,
@@ -67,7 +94,8 @@ export const loadCubismModel = async (
                     buffer.byteLength,
                 )
                 const textures = await loadCubismTextures(dir, setting)
+                const modelBuffer = await loadCubismModelBuffer(dir, setting)
 
-                resolve({ setting, textures })
+                resolve({ setting, textures, modelBuffer })
             })
     })

@@ -31,7 +31,7 @@ document.body.appendChild(app.view)
 app.loader
     .add('background', 'back_class_normal.png')
     .add('json', 'Haru/Haru.model3.json')
-    .load(async (loader, resources) => {
+    .load(async (_loader, resources) => {
         const bg = new PIXI.Sprite(resources?.background?.texture)
         const model = await Live2DModel.fromModel('/Haru/Haru.model3.json')
         const model2 = await Live2DModel.fromModel('/Hiyori/Hiyori.model3.json')

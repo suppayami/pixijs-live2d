@@ -1,5 +1,4 @@
 import * as Pixi from 'pixi.js'
-import 'whatwg-fetch'
 
 import { Live2DCubismFramework as cubismusermodel } from '../cubism-sdk/Framework/dist/model/cubismusermodel'
 import { Live2DCubismFramework as icubismmodelsetting } from '../cubism-sdk/Framework/dist/icubismmodelsetting'
@@ -20,30 +19,28 @@ export class Live2DModel extends Pixi.Container {
     static async fromModel(path: string): Promise<Live2DModel> {
         const dir = path.split('/').slice(0, -1).join('/')
         const filename = path.split('/').pop() ?? ''
-        const { setting, textures } = await loadCubismModel(dir, filename)
+        const { setting, textures, modelBuffer } = await loadCubismModel(
+            dir,
+            filename,
+        )
 
         const model = new Live2DModel(setting, textures)
         model.assetHomeDir = path.split('/').slice(0, -1).join('/')
-        await model.setupCubismModel()
+        await model.setupCubismModel(modelBuffer)
 
         return model
     }
 
-    public async setupCubismModel() {
+    public async setupCubismModel(modelBuffer?: ArrayBuffer) {
         const cubismModel = this.cubismModel
+
+        if (!modelBuffer) {
+            return
+        }
 
         cubismModel.setInitialized(false)
         cubismModel.setUpdating(true)
-
-        if (this.cubismSetting.getModelFileName() != '') {
-            const modelFileName = this.cubismSetting.getModelFileName()
-
-            const res = await fetch(`${this.assetHomeDir}/${modelFileName}`)
-            const buffer = await res.arrayBuffer()
-
-            cubismModel.loadModel(buffer)
-        }
-
+        cubismModel.loadModel(modelBuffer)
         cubismModel.createRenderer()
     }
 
@@ -89,15 +86,14 @@ export class Live2DModel extends Pixi.Container {
 
     private async setupTextures(renderer: Pixi.Renderer) {
         for (let i = 0; i < this.textures.length; i++) {
-            renderer.texture.bind(this.textures[i].baseTexture, 0)
+            const texture = this.textures[i]
+            const baseTexture = texture.baseTexture as any
+            renderer.texture.bind(texture.baseTexture, 0)
             this.cubismModel
                 .getRenderer()
-                .bindTexture(
-                    i,
-                    (this.textures[i].baseTexture as any)._glTextures[
-                        this.contextId
-                    ].texture,
-                )
+                .bindTexture(i, baseTexture._glTextures[this.contextId].texture)
+
+            baseTexture.touched = renderer.textureGC.count
         }
     }
 }
