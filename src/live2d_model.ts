@@ -44,9 +44,17 @@ export class Live2DModel extends Pixi.Container {
         cubismModel.createRenderer()
     }
 
+    public release() {
+        this.cubismModel.release()
+    }
+
     protected _render(renderer: Pixi.Renderer) {
         const cubismModel = this.cubismModel
         const cubismRenderer = cubismModel.getRenderer()
+
+        if (!cubismRenderer) {
+            return
+        }
 
         if (this.contextId !== (renderer as any).CONTEXT_UID) {
             this.contextId = (renderer as any).CONTEXT_UID
@@ -54,7 +62,9 @@ export class Live2DModel extends Pixi.Container {
             cubismRenderer.startUp(renderer.gl)
         }
 
-        renderer.batch.reset()
+        this.touchTextures(renderer)
+
+        renderer.batch.flush()
         renderer.geometry.reset()
         renderer.shader.reset()
         renderer.state.reset()
@@ -71,17 +81,26 @@ export class Live2DModel extends Pixi.Container {
                 this.scale.x,
                 (renderer.width / renderer.height) * this.scale.y,
             )
+
         cubismModel.getModelMatrix().setX(-1 + (this.x / renderer.width) * 2)
         cubismModel.getModelMatrix().setY(1 - (this.y / renderer.height) * 2)
         cubismRenderer.setMvpMatrix(cubismModel.getModelMatrix())
         cubismRenderer.drawModel()
 
-        const texture = Pixi.Texture.WHITE.baseTexture
+        const texture = this.textures[0].baseTexture
         renderer.texture.bind(texture, 0)
 
         renderer.gl.activeTexture(
             WebGLRenderingContext.TEXTURE0 + renderer.texture.currentLocation,
         )
+
+        renderer.texture.reset()
+        renderer.geometry.reset()
+        renderer.state.reset()
+        renderer.shader.reset()
+        renderer.framebuffer.reset()
+
+        renderer.gl.viewport(0, 0, renderer.view.width, renderer.view.height)
     }
 
     private async setupTextures(renderer: Pixi.Renderer) {
@@ -92,7 +111,13 @@ export class Live2DModel extends Pixi.Container {
             this.cubismModel
                 .getRenderer()
                 .bindTexture(i, baseTexture._glTextures[this.contextId].texture)
+        }
+    }
 
+    private touchTextures(renderer: Pixi.Renderer) {
+        for (let i = 0; i < this.textures.length; i++) {
+            const texture = this.textures[i]
+            const baseTexture = texture.baseTexture as any
             baseTexture.touched = renderer.textureGC.count
         }
     }

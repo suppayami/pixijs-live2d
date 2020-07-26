@@ -10,26 +10,6 @@ interface CubismResources {
     modelBuffer?: ArrayBuffer
 }
 
-const jsonToArrayBuffer = async (json: any) =>
-    new Promise<ArrayBuffer>((resolve) => {
-        const blob = new Blob([JSON.stringify(json)])
-        const reader = new FileReader()
-        reader.readAsArrayBuffer(blob)
-        reader.onload = function () {
-            resolve(reader.result as any)
-        }
-    })
-
-const stringToArrayBuffer = async (string: string) =>
-    new Promise<ArrayBuffer>((resolve) => {
-        const blob = new Blob([string])
-        const reader = new FileReader()
-        reader.readAsArrayBuffer(blob)
-        reader.onload = function () {
-            resolve(reader.result as any)
-        }
-    })
-
 const loadCubismTextures = async (
     dir: string,
     setting: icubismmodelsetting.ICubismModelSetting,
@@ -82,20 +62,16 @@ export const loadCubismModel = async (
     dir: string,
     modelFileName: string,
 ): Promise<CubismResources> =>
-    new Promise((resolve) => {
-        const loader = new Pixi.Loader()
+    new Promise(async (resolve) => {
+        const path = `${dir}/${modelFileName}`
+        const res = await fetch(path)
+        const buffer = await res.arrayBuffer()
+        const setting = new cubismmodelsettingjson.CubismModelSettingJson(
+            buffer,
+            buffer.byteLength,
+        )
+        const textures = await loadCubismTextures(dir, setting)
+        const modelBuffer = await loadCubismModelBuffer(dir, setting)
 
-        loader
-            .add(dir, `${dir}/${modelFileName}`)
-            .load(async (_loader, resources) => {
-                const buffer = await jsonToArrayBuffer(resources[dir]?.data)
-                const setting = new cubismmodelsettingjson.CubismModelSettingJson(
-                    buffer,
-                    buffer.byteLength,
-                )
-                const textures = await loadCubismTextures(dir, setting)
-                const modelBuffer = await loadCubismModelBuffer(dir, setting)
-
-                resolve({ setting, textures, modelBuffer })
-            })
+        resolve({ setting, textures, modelBuffer })
     })

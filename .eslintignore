@@ -3,3 +3,4 @@ dist_demo/**/*
 node_modules/**/*
 **/*/.js
 cubism-sdk/**/*
+*.js
