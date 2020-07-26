@@ -31,6 +31,8 @@ export class Live2DModel extends Pixi.Container {
     protected lipSyncIds = new csmvector.csmVector<cubismid.CubismIdHandle>()
 
     protected lipSyncOpen = 0
+    protected lookAtPoint: [number, number] | null = null
+    protected viewportSize: [number, number] | null = null
 
     constructor(
         protected readonly cubismSetting: icubismmodelsetting.ICubismModelSetting,
@@ -284,6 +286,26 @@ export class Live2DModel extends Pixi.Container {
         return this.playMotion(group, index, priority, onFinishedHandler)
     }
 
+    public playExpression(expressionId: string) {
+        const motion = this.expressions[expressionId]
+
+        if (!motion) {
+            return
+        }
+
+        this.cubismModel
+            .getExpressionManager()
+            .startMotionPriority(motion, false, 10)
+    }
+
+    public setViewPoint(x: number, y: number) {
+        this.lookAtPoint = [x, y]
+    }
+
+    public clearViewPoint() {
+        this.lookAtPoint = null
+    }
+
     protected async setupMotion(motionBuffers: ArrayBufferMap) {
         const cubismSetting = this.cubismSetting
         const model = this.cubismModel
@@ -327,6 +349,7 @@ export class Live2DModel extends Pixi.Container {
             this.contextId = (renderer as any).CONTEXT_UID
             this.setupTextures(renderer)
             cubismRenderer.startUp(renderer.gl)
+            this.viewportSize = [renderer.width, renderer.height]
         }
 
         this.touchTextures(renderer)
@@ -415,6 +438,36 @@ export class Live2DModel extends Pixi.Container {
             )
         }
         model.getModel().saveParameters()
+
+        if (this.viewportSize) {
+            const dragX = this.lookAtPoint
+                ? ((this.lookAtPoint[0] - this.viewportSize[0] / 2) /
+                      this.viewportSize[0]) *
+                  2
+                : 0
+            const dragY = this.lookAtPoint
+                ? ((this.viewportSize[1] / 2 - this.lookAtPoint[1]) /
+                      this.viewportSize[1]) *
+                  2
+                : 0
+
+            model
+                .getModel()
+                .addParameterValueById(this.idParamAngleX, dragX * 30)
+            model
+                .getModel()
+                .addParameterValueById(this.idParamAngleY, dragY * 30)
+            model
+                .getModel()
+                .addParameterValueById(this.idParamAngleZ, dragX * dragY * -30)
+
+            model
+                .getModel()
+                .addParameterValueById(this.idParamBodyAngleX, dragX * 10)
+
+            model.getModel().addParameterValueById(this.idParamEyeBallX, dragX)
+            model.getModel().addParameterValueById(this.idParamEyeBallY, dragY)
+        }
 
         if (!motionUpdated) {
             if (model.getEyeBlink()) {
