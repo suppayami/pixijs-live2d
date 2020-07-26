@@ -45,11 +45,11 @@ app.loader
         bg.anchor.x = 0.5
         bg.anchor.y = 0.5
 
-        model.x = 0
+        model.x = 320
         model2.x += 1280 / 2
         model3.x = 1280 - 320
 
-        model.y = 0
+        model.y = 720 / 2
         model2.y = 720 / 2
         model3.y = 720 / 2
 
