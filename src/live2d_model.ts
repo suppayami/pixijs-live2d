@@ -8,21 +8,29 @@ import { Live2DCubismFramework as acubismmotion } from '../cubism-sdk/Framework/
 import { Live2DCubismFramework as cubismeyeblink } from '../cubism-sdk/Framework/dist/effect/cubismeyeblink'
 import { Live2DCubismFramework as cubismbreath } from '../cubism-sdk/Framework/dist/effect/cubismbreath'
 import { Live2DCubismFramework as csmvector } from '../cubism-sdk/Framework/dist/type/csmvector'
+import { Live2DCubismFramework as cubismmotionqueuemanager } from '../cubism-sdk/Framework/dist/motion/cubismmotionqueuemanager'
 import { loadCubismModel, ArrayBufferMap } from './cubism_loader'
 import { Live2DInternalModel } from './live2d_internal_model'
 
 export class Live2DModel extends Pixi.Container {
+    public motionRandomGroup = ''
+
     protected cubismModel = new Live2DInternalModel()
     protected assetHomeDir = ''
     protected contextId = -1
 
     protected expressions: { [key: string]: acubismmotion.ACubismMotion } = {}
+    protected motions: { [key: string]: acubismmotion.ACubismMotion } = {}
     protected idParamAngleX: cubismid.CubismId
     protected idParamAngleY: cubismid.CubismId
     protected idParamAngleZ: cubismid.CubismId
     protected idParamEyeBallX: cubismid.CubismId
     protected idParamEyeBallY: cubismid.CubismId
     protected idParamBodyAngleX: cubismid.CubismId
+    protected eyeBlinkIds = new csmvector.csmVector<cubismid.CubismIdHandle>()
+    protected lipSyncIds = new csmvector.csmVector<cubismid.CubismIdHandle>()
+
+    protected lipSyncOpen = 0
 
     constructor(
         protected readonly cubismSetting: icubismmodelsetting.ICubismModelSetting,
@@ -61,6 +69,8 @@ export class Live2DModel extends Pixi.Container {
             expressions,
             physics,
             pose,
+            motionBuffers,
+            userData,
         } = await loadCubismModel(dir, filename)
 
         const model = new Live2DModel(setting, textures)
@@ -71,6 +81,10 @@ export class Live2DModel extends Pixi.Container {
         await model.setupPose(pose)
         await model.setupEyeBlink()
         await model.setupBreath()
+        await model.setupUserData(userData)
+        await model.setupEyeBlinkIds()
+        await model.setupLipSyncIds()
+        await model.setupMotion(motionBuffers)
 
         return model
     }
@@ -205,6 +219,102 @@ export class Live2DModel extends Pixi.Container {
         model.setBreath(breath)
     }
 
+    public async setupUserData(userDataBuffer?: ArrayBuffer) {
+        const cubismModel = this.cubismModel
+        if (!userDataBuffer) {
+            return
+        }
+        cubismModel.loadUserData(userDataBuffer, userDataBuffer.byteLength)
+    }
+
+    public async setupEyeBlinkIds() {
+        const eyeBlinkIdCount = this.cubismSetting.getEyeBlinkParameterCount()
+        for (let i = 0; i < eyeBlinkIdCount; ++i) {
+            this.eyeBlinkIds.pushBack(
+                this.cubismSetting.getEyeBlinkParameterId(i),
+            )
+        }
+    }
+
+    public async setupLipSyncIds() {
+        const lipSyncIdCount = this.cubismSetting.getLipSyncParameterCount()
+        for (let i = 0; i < lipSyncIdCount; ++i) {
+            this.lipSyncIds.pushBack(
+                this.cubismSetting.getLipSyncParameterId(i),
+            )
+        }
+    }
+
+    public setLipSyncOpen(value: number) {
+        this.lipSyncOpen = Math.min(Math.max(0, value), 1)
+    }
+
+    public playMotion(
+        group: string,
+        index: number,
+        priority: number,
+        onFinishedHandler?: acubismmotion.FinishedMotionCallback,
+    ): cubismmotionqueuemanager.CubismMotionQueueEntryHandle {
+        const motionManager = this.cubismModel.getMotionManager()
+
+        if (!motionManager.reserveMotion(priority)) {
+            return cubismmotionqueuemanager.InvalidMotionQueueEntryHandleValue
+        }
+
+        const name = `${group}_${index}`
+        const motion = this.motions[name]
+
+        motion.setFinishedMotionHandler(onFinishedHandler!) // undefined means remove handler
+        return motionManager.startMotionPriority(motion, false, priority)
+    }
+
+    public playRandomMotion(
+        group: string,
+        priority: number,
+        onFinishedHandler?: acubismmotion.FinishedMotionCallback,
+    ): cubismmotionqueuemanager.CubismMotionQueueEntryHandle {
+        if (this.cubismSetting.getMotionCount(group) == 0) {
+            return cubismmotionqueuemanager.InvalidMotionQueueEntryHandleValue
+        }
+
+        const index = Math.floor(
+            Math.random() * this.cubismSetting.getMotionCount(group),
+        )
+
+        return this.playMotion(group, index, priority, onFinishedHandler)
+    }
+
+    protected async setupMotion(motionBuffers: ArrayBufferMap) {
+        const cubismSetting = this.cubismSetting
+        const model = this.cubismModel
+
+        Object.entries(motionBuffers).forEach(([name, buffer]) => {
+            const motion = model.loadMotion(buffer, buffer.byteLength, name)
+            const nameSplit = name.split('_')
+            const group = nameSplit.slice(0, -1).join('_')
+            const i = parseInt(nameSplit.pop() ?? '0', 10)
+
+            let fadeTime = cubismSetting.getMotionFadeInTimeValue(group, i)
+            if (fadeTime >= 0.0) {
+                motion.setFadeInTime(fadeTime)
+            }
+
+            fadeTime = cubismSetting.getMotionFadeOutTimeValue(group, i)
+            if (fadeTime >= 0.0) {
+                motion.setFadeOutTime(fadeTime)
+            }
+            motion.setEffectIds(this.eyeBlinkIds, this.lipSyncIds)
+
+            if (this.motions[name]) {
+                acubismmotion.ACubismMotion.delete(this.motions[name])
+            }
+
+            this.motions[name] = motion
+        })
+
+        model.getMotionManager().stopAllMotions()
+    }
+
     protected _render(renderer: Pixi.Renderer) {
         const cubismModel = this.cubismModel
         const cubismRenderer = cubismModel.getRenderer()
@@ -284,7 +394,7 @@ export class Live2DModel extends Pixi.Container {
     }
 
     private onTickerUpdate = (dt: number) => {
-        const deltaTime = dt / Pixi.Ticker.shared.deltaMS
+        const deltaTime = (dt * Pixi.Ticker.shared.deltaMS) / 1000
         let motionUpdated = false
 
         const model = this.cubismModel
@@ -293,9 +403,11 @@ export class Live2DModel extends Pixi.Container {
         const physics = model.getPhysics()
         const pose = model.getPose()
         const breath = model.getBreath()
+        const lipSync = model.getLipSync()
 
         model.getModel().loadParameters()
-        if (motionManager.isFinished()) {
+        if (motionManager.isFinished() && this.motionRandomGroup) {
+            this.playRandomMotion(this.motionRandomGroup, 1)
         } else {
             motionUpdated = motionManager.updateMotion(
                 model.getModel(),
@@ -316,16 +428,26 @@ export class Live2DModel extends Pixi.Container {
             expressionManager.updateMotion(model.getModel(), deltaTime)
         }
 
+        if (breath) {
+            breath.updateParameters(model.getModel(), deltaTime)
+        }
+
         if (physics) {
             physics.evaluate(model.getModel(), deltaTime)
         }
 
-        if (pose) {
-            pose.updateParameters(model.getModel(), deltaTime)
+        if (lipSync) {
+            const value = this.lipSyncOpen
+
+            for (let i = 0; i < this.lipSyncIds.getSize(); ++i) {
+                model
+                    .getModel()
+                    .addParameterValueById(this.lipSyncIds.at(i), value)
+            }
         }
 
-        if (breath) {
-            breath.updateParameters(model.getModel(), deltaTime)
+        if (pose) {
+            pose.updateParameters(model.getModel(), deltaTime)
         }
 
         model.getModel().update()

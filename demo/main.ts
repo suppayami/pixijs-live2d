@@ -33,9 +33,7 @@ app.loader
     .add('json', 'Haru/Haru.model3.json')
     .load(async (_loader, resources) => {
         const bg = new PIXI.Sprite(resources?.background?.texture)
-        const model = await Live2DModel.fromModel('/Haru/Haru.model3.json')
         const model2 = await Live2DModel.fromModel('/Hiyori/Hiyori.model3.json')
-        const model3 = await Live2DModel.fromModel('/Natori/Natori.model3.json')
 
         // Setup the position of the bunny
         bg.x = app.renderer.width / 2
@@ -45,21 +43,13 @@ app.loader
         bg.anchor.x = 0.5
         bg.anchor.y = 0.5
 
-        model.x = 320
         model2.x += 1280 / 2
-        model3.x = 1280 - 320
 
-        model.y = 720 / 2
-        model2.y = 720 / 2
-        model3.y = 720 / 2
+        model2.y = 400
 
-        model.scale.set(0.6, 0.6)
-        model2.scale.set(0.6, 0.6)
-        model3.scale.set(0.6, 0.6)
+        model2.scale.set(1, 1)
 
         // Add the bunny to the scene we are building
         app.stage.addChild(bg)
-        app.stage.addChild(model)
         app.stage.addChild(model2)
-        app.stage.addChild(model3)
     })

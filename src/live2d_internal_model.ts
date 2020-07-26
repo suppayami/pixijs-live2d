@@ -34,4 +34,8 @@ export class Live2DInternalModel extends cubismusermodel.CubismUserModel {
     public getBreath() {
         return this._breath
     }
+
+    public getLipSync() {
+        return this._lipsync
+    }
 }

@@ -5,6 +5,8 @@ import {
 } from '../cubism-sdk/Framework/dist/live2dcubismframework'
 
 export { Live2DModel } from './live2d_model'
+export { loadCubismModel } from './cubism_loader'
+export type { ArrayBufferMap } from './cubism_loader'
 
 export const initCubism = () => {
     const option = new Option()

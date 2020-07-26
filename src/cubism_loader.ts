@@ -15,6 +15,8 @@ interface CubismResources {
     expressions: ArrayBufferMap
     physics?: ArrayBuffer
     pose?: ArrayBuffer
+    motionBuffers: ArrayBufferMap
+    userData?: ArrayBuffer
 }
 
 const loadCubismTextures = async (
@@ -82,6 +84,35 @@ const loadCubismExpression = async (
     return expressions
 }
 
+const loadCubismMotion = async (
+    dir: string,
+    setting: icubismmodelsetting.ICubismModelSetting,
+) => {
+    const motionGroupCount = setting.getMotionGroupCount()
+
+    if (!motionGroupCount) {
+        return {}
+    }
+
+    const arrayBufferMap: ArrayBufferMap = {}
+
+    for (let i = 0; i < motionGroupCount; i++) {
+        const groupName = setting.getMotionGroupName(i)
+        const motionCount = setting.getMotionCount(groupName)
+
+        for (let j = 0; j < motionCount; j++) {
+            const filename = setting.getMotionFileName(groupName, j)
+            const name = `${groupName}_${j}`
+            const res = await fetch(`${dir}/${filename}`)
+            const buffer = await res.arrayBuffer()
+
+            arrayBufferMap[name] = buffer
+        }
+    }
+
+    return arrayBufferMap
+}
+
 const loadCubismPhysics = async (
     dir: string,
     setting: icubismmodelsetting.ICubismModelSetting,
@@ -95,6 +126,14 @@ const loadCubismPose = async (
     setting: icubismmodelsetting.ICubismModelSetting,
 ) => {
     const filename = setting.getPoseFileName()
+    return getSingleArrayBuffer(dir, filename)
+}
+
+const loadUserData = async (
+    dir: string,
+    setting: icubismmodelsetting.ICubismModelSetting,
+) => {
+    const filename = setting.getUserDataFile()
     return getSingleArrayBuffer(dir, filename)
 }
 
@@ -123,6 +162,17 @@ export const loadCubismModel = async (
         const expressions = await loadCubismExpression(dir, setting)
         const physics = await loadCubismPhysics(dir, setting)
         const pose = await loadCubismPose(dir, setting)
+        const motionBuffers = await loadCubismMotion(dir, setting)
+        const userData = await loadUserData(dir, setting)
 
-        resolve({ setting, textures, modelBuffer, expressions, physics, pose })
+        resolve({
+            setting,
+            textures,
+            modelBuffer,
+            expressions,
+            physics,
+            pose,
+            motionBuffers,
+            userData,
+        })
     })
