@@ -116,6 +116,16 @@ export class Live2DModel extends Pixi.Container {
         cubismModel.setUpdating(true)
         cubismModel.loadModel(modelBuffer)
         cubismModel.createRenderer()
+
+        // FIXME: Might need to do anything different, this sucks
+        const model = this.cubismModel.getModel()
+        const _getDrawableOpacity = model.getDrawableOpacity
+        this.cubismModel.getModel().getDrawableOpacity = (index) => {
+            return (
+                _getDrawableOpacity.call(model, index) *
+                this.cubismModel.getOpacity()
+            )
+        }
     }
 
     public async setupCubismExpressions(expressionBuffers: ArrayBufferMap) {
@@ -308,6 +318,10 @@ export class Live2DModel extends Pixi.Container {
 
     public clearViewPoint() {
         this.lookAtPoint = null
+    }
+
+    public setOpacity(opacity: number) {
+        this.cubismModel.setOpacity(opacity)
     }
 
     protected async setupMotion(motionBuffers: ArrayBufferMap) {
