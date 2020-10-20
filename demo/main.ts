@@ -33,7 +33,7 @@ app.loader
     .add('json', 'Haru/Haru.model3.json')
     .load(async (_loader, resources) => {
         const bg = new PIXI.Sprite(resources?.background?.texture)
-        const model2 = await Live2DModel.fromModel('/Hiyori/Hiyori.model3.json')
+        const model2 = await Live2DModel.fromModel('/Haru/Haru.model3.json')
 
         // Setup the position of the bunny
         bg.x = app.renderer.width / 2
@@ -47,7 +47,8 @@ app.loader
 
         model2.y = 400
 
-        model2.scale.set(1, 1)
+        model2.scale.set(0.7, 0.7)
+        model2.playExpression('f03')
 
         // Add the bunny to the scene we are building
         app.stage.addChild(bg)

@@ -27,6 +27,7 @@ export class Live2DModel extends Pixi.Container {
     protected idParamEyeBallX: cubismid.CubismId
     protected idParamEyeBallY: cubismid.CubismId
     protected idParamBodyAngleX: cubismid.CubismId
+    protected idParamBreath: cubismid.CubismId
     protected eyeBlinkIds = new csmvector.csmVector<cubismid.CubismIdHandle>()
     protected lipSyncIds = new csmvector.csmVector<cubismid.CubismIdHandle>()
 
@@ -58,6 +59,9 @@ export class Live2DModel extends Pixi.Container {
         )
         this.idParamBodyAngleX = live2dcubismframework.CubismFramework.getIdManager().getId(
             cubismdefaultparameterid.ParamBodyAngleX,
+        )
+        this.idParamBreath = live2dcubismframework.CubismFramework.getIdManager().getId(
+            cubismdefaultparameterid.ParamBreath,
         )
     }
 
@@ -210,8 +214,8 @@ export class Live2DModel extends Pixi.Container {
                     cubismdefaultparameterid.ParamBreath,
                 ),
                 0.0,
-                0.5,
-                3.2345,
+                0.75,
+                2.875,
                 0.5,
             ),
         )
@@ -259,9 +263,9 @@ export class Live2DModel extends Pixi.Container {
     ): cubismmotionqueuemanager.CubismMotionQueueEntryHandle {
         const motionManager = this.cubismModel.getMotionManager()
 
-        if (!motionManager.reserveMotion(priority)) {
-            return cubismmotionqueuemanager.InvalidMotionQueueEntryHandleValue
-        }
+        // if (!motionManager.reserveMotion(priority)) {
+        //     return cubismmotionqueuemanager.InvalidMotionQueueEntryHandleValue
+        // }
 
         const name = `${group}_${index}`
         const motion = this.motions[name]
@@ -429,8 +433,10 @@ export class Live2DModel extends Pixi.Container {
         const lipSync = model.getLipSync()
 
         model.getModel().loadParameters()
-        if (motionManager.isFinished() && this.motionRandomGroup) {
-            this.playRandomMotion(this.motionRandomGroup, 1)
+        if (motionManager.isFinished()) {
+            if (this.motionRandomGroup) {
+                this.playRandomMotion(this.motionRandomGroup, 1)
+            }
         } else {
             motionUpdated = motionManager.updateMotion(
                 model.getModel(),
