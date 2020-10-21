@@ -49,11 +49,6 @@ app.loader
 
         model2.scale.set(0.7, 0.7)
         model2.playExpression('f03')
-        model2.setOpacity(0.2)
-
-        setInterval(() => {
-            model2.playRandomMotion('TapBody', 100)
-        }, 1000)
 
         // Add the bunny to the scene we are building
         app.stage.addChild(bg)

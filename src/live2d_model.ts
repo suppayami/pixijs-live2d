@@ -27,13 +27,15 @@ export class Live2DModel extends Pixi.Container {
     protected idParamEyeBallX: cubismid.CubismId
     protected idParamEyeBallY: cubismid.CubismId
     protected idParamBodyAngleX: cubismid.CubismId
-    protected idParamBreath: cubismid.CubismId
     protected eyeBlinkIds = new csmvector.csmVector<cubismid.CubismIdHandle>()
     protected lipSyncIds = new csmvector.csmVector<cubismid.CubismIdHandle>()
 
     protected lipSyncOpen = 0
     protected lookAtPoint: [number, number] | null = null
     protected viewportSize: [number, number] | null = null
+    protected isBreathing = true
+
+    protected parameterValues: { [name: string]: number } = {}
 
     constructor(
         protected readonly cubismSetting: icubismmodelsetting.ICubismModelSetting,
@@ -59,9 +61,6 @@ export class Live2DModel extends Pixi.Container {
         )
         this.idParamBodyAngleX = live2dcubismframework.CubismFramework.getIdManager().getId(
             cubismdefaultparameterid.ParamBodyAngleX,
-        )
-        this.idParamBreath = live2dcubismframework.CubismFramework.getIdManager().getId(
-            cubismdefaultparameterid.ParamBreath,
         )
     }
 
@@ -324,6 +323,18 @@ export class Live2DModel extends Pixi.Container {
         this.cubismModel.setOpacity(opacity)
     }
 
+    public setBreathing(isBreathing: boolean) {
+        this.isBreathing = isBreathing
+    }
+
+    public setParameter(parameter: string, value: number) {
+        this.parameterValues[parameter] = value
+    }
+
+    public clearParameter(parameter: string) {
+        delete this.parameterValues[parameter]
+    }
+
     protected async setupMotion(motionBuffers: ArrayBufferMap) {
         const cubismSetting = this.cubismSetting
         const model = this.cubismModel
@@ -501,7 +512,7 @@ export class Live2DModel extends Pixi.Container {
             expressionManager.updateMotion(model.getModel(), deltaTime)
         }
 
-        if (breath) {
+        if (breath && this.isBreathing) {
             breath.updateParameters(model.getModel(), deltaTime)
         }
 
@@ -521,6 +532,15 @@ export class Live2DModel extends Pixi.Container {
 
         if (pose) {
             pose.updateParameters(model.getModel(), deltaTime)
+        }
+
+        for (const parameter in this.parameterValues) {
+            const id = live2dcubismframework.CubismFramework.getIdManager().getId(
+                parameter,
+            )
+            model
+                .getModel()
+                .setParameterValueById(id, this.parameterValues[parameter])
         }
 
         model.getModel().update()

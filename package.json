@@ -7,7 +7,7 @@
     "license": "MIT",
     "private": false,
     "scripts": {
-        "start": "webpack-dev-server -r register_ts.js --open",
+        "start": "webpack-dev-server -r register_ts.js --open --name dev",
         "build": "webpack"
     },
     "dependencies": {
