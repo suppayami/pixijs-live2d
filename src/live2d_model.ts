@@ -12,7 +12,7 @@ import { Live2DCubismFramework as cubismmotionqueuemanager } from '../cubism-sdk
 import { loadCubismModel, ArrayBufferMap } from './cubism_loader'
 import { Live2DInternalModel } from './live2d_internal_model'
 
-export class Live2DModel extends Pixi.Container {
+export class Live2DModel extends Pixi.Sprite {
     public motionRandomGroup = ''
 
     protected cubismModel = new Live2DInternalModel()
@@ -35,7 +35,9 @@ export class Live2DModel extends Pixi.Container {
     protected viewportSize: [number, number] | null = null
     protected isBreathing = true
 
-    protected parameterValues: { [name: string]: number } = {}
+    protected parameterValues: {
+        [name: string]: { target: number; weight: number }
+    } = {}
 
     constructor(
         protected readonly cubismSetting: icubismmodelsetting.ICubismModelSetting,
@@ -116,15 +118,9 @@ export class Live2DModel extends Pixi.Container {
         cubismModel.loadModel(modelBuffer)
         cubismModel.createRenderer()
 
-        // FIXME: Might need to do anything different, this sucks
         const model = this.cubismModel.getModel()
-        const _getDrawableOpacity = model.getDrawableOpacity
-        this.cubismModel.getModel().getDrawableOpacity = (index) => {
-            return (
-                _getDrawableOpacity.call(model, index) *
-                this.cubismModel.getOpacity()
-            )
-        }
+        this.width = model.getModel().canvasinfo.CanvasWidth
+        this.height = model.getModel().canvasinfo.CanvasHeight
     }
 
     public async setupCubismExpressions(expressionBuffers: ArrayBufferMap) {
@@ -323,12 +319,16 @@ export class Live2DModel extends Pixi.Container {
         this.cubismModel.setOpacity(opacity)
     }
 
+    public getOpacity() {
+        return this.cubismModel.getOpacity()
+    }
+
     public setBreathing(isBreathing: boolean) {
         this.isBreathing = isBreathing
     }
 
-    public setParameter(parameter: string, value: number) {
-        this.parameterValues[parameter] = value
+    public setParameter(parameter: string, value: number, weight = 1.0) {
+        this.parameterValues[parameter] = { target: value, weight }
     }
 
     public clearParameter(parameter: string) {
@@ -540,7 +540,11 @@ export class Live2DModel extends Pixi.Container {
             )
             model
                 .getModel()
-                .setParameterValueById(id, this.parameterValues[parameter])
+                .setParameterValueById(
+                    id,
+                    this.parameterValues[parameter].target,
+                    this.parameterValues[parameter].weight,
+                )
         }
 
         model.getModel().update()

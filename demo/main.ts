@@ -44,13 +44,20 @@ app.loader
         bg.anchor.y = 0.5
 
         model2.x += 1280 / 2
+        model2.y = 300
 
-        model2.y = 400
+        const sprite = new PIXI.Sprite()
+        sprite.addChild(model2)
+        sprite.filters = [new PIXI.filters.AlphaFilter(0.5)]
+        sprite.width = model2.width
+        sprite.height = model2.height
 
-        model2.scale.set(0.7, 0.7)
+        // setInterval(() => model2.setOpacity(model2.getOpacity() + 0.05), 100)
+
+        model2.scale.set(0.7, -0.7)
         model2.playExpression('f03')
 
         // Add the bunny to the scene we are building
         app.stage.addChild(bg)
-        app.stage.addChild(model2)
+        app.stage.addChild(sprite)
     })
