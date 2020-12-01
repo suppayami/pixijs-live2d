@@ -335,6 +335,17 @@ export class Live2DModel extends Pixi.Sprite {
         delete this.parameterValues[parameter]
     }
 
+    public getParameter(parameter: string) {
+        const id = live2dcubismframework.CubismFramework.getIdManager().getId(
+            parameter,
+        )
+
+        return this.parameterValues[parameter]
+            ? this.parameterValues[parameter].target *
+                  this.parameterValues[parameter].weight
+            : this.cubismModel.getModel().getParameterValueById(id)
+    }
+
     protected async setupMotion(motionBuffers: ArrayBufferMap) {
         const cubismSetting = this.cubismSetting
         const model = this.cubismModel
