@@ -256,6 +256,9 @@ export class Live2DModel extends Pixi.Sprite {
         }
     }
 
+    /**
+     * Public API
+     */
     public setLipSyncOpen(value: number) {
         this.lipSyncOpen = Math.min(Math.max(0, value), 1)
     }
